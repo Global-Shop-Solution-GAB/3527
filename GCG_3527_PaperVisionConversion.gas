@@ -1,0 +1,188 @@
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+'Sample conversion from papervision to document control
+'Created for Brookfield by SKC.
+
+
+v.Local.sDB.Declare(String)
+v.Local.sSql.Declare(String)
+v.Local.sSqlParts.Declare(String)
+v.Local.sSqlItem.Declare(String)
+v.Local.sPart.Declare(String)
+v.Local.sLot.Declare(String)
+v.Local.sFile.Declare(String)
+v.Local.sImages.Declare(String)
+v.Local.sLength.Declare(String)
+v.Local.sPosLen.Declare(String)
+v.Local.sBin.Declare(string)
+v.Local.sSerial.Declare(String)
+v.Local.sHeat.Declare(String)
+v.Local.sCase.Declare(String)
+v.Local.iLink.Declare(Long)
+v.Local.iLen.Declare(Long)
+v.Local.iCount.Declare(Long)
+v.Local.iLenCount.Declare(Long)
+
+'v.Local.sDB.Set("C:\Users\stryon\Desktop\Sample\DATAGRP\DATAGRP.MDB")
+v.Local.sDB.Set("C:\Users\administrator\Desktop\Doc Conversion\DATAGRP\DATAGRP.MDB")
+
+F.ODBC.Connection!conx.OpenMDBConnection(v.Local.sDB)
+F.ODBC.Connection!conP.OpenConnection(v.Ambient.PDSN, v.Ambient.PUser, v.Ambient.PPass)
+
+F.Intrinsic.Debug.InvokeDebugger
+
+F.Intrinsic.Debug.Stop
+
+v.Local.sSql.Set("Select * from IndexDB1")
+F.ODBC.Connection!conx.OpenRecordsetRO("rst", v.Local.sSql)
+
+f.Intrinsic.Control.DoUntil(v.ODBC.conx!rst.EOF, =, True)
+	V.Local.sFile.Set(v.ODBC.conx!rst.fieldval!ImageList)
+	F.Intrinsic.String.Len(v.Local.sFile, v.Local.iLen)
+	F.Intrinsic.Math.Div(v.Local.iLen, 8, v.Local.iLen)
+
+	F.Intrinsic.Control.For(v.Local.iCount, 1, v.Local.iLen, 1)
+		F.Intrinsic.Control.If(v.Local.sLength, =, "")
+			v.Local.sLength.Set(1)
+			v.Local.sPosLen.Set(8)
+		F.Intrinsic.Control.Else
+			F.Intrinsic.Control.If(v.Local.iCount, >=, 3)
+				F.Intrinsic.Math.Sub(v.Local.iLenCount, 1, v.Local.iLenCount)
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.Math.Add(v.Local.iLenCount, 9, v.Local.ilencount)
+			F.Intrinsic.String.Build("{0}*!*{1}",v.Local.sLength, v.Local.iLenCount, v.Local.sLength)
+			F.Intrinsic.String.Build("{0}*!*8", v.Local.sPosLen, v.Local.sPosLen)
+		F.Intrinsic.Control.EndIf	
+	F.Intrinsic.Control.Next(v.Local.iCount)
+
+	F.Intrinsic.String.Split(v.Local.sLength, "*!*", v.Local.sLength)
+	F.Intrinsic.String.Split(v.Local.sPosLen, "*!*", v.Local.sPosLen)
+	F.Intrinsic.String.PositionalSplit(v.Local.sFile, v.Local.sLength, v.Local.sPosLen, v.Local.sImages)
+	'Create the reference with the files attached.
+	'Part
+	F.Intrinsic.String.RPad(v.ODBC.conx!rst.FieldVal!iField3, " ", 22, v.Local.sPart)
+	'Heat will need to LIKE so that we can compensate for the additonal info they add in the item master, but is not in paper vision
+	F.Intrinsic.String.Build("Select Part, Heat, Lot, Bin, Serial_Number from Item_Master where Part = '{0}' and Heat = '{1}%' and Lot Like '%{2}%'", v.ODBC.conx!rst.FieldValTrim!iField3, v.ODBC.conx!rst.FieldValTrim!iField2, v.ODBC.conx!rst.FieldValTrim!iField1, v.Local.sSqlItem)
+	F.ODBC.Connection!conP.OpenLocalRecordsetRO("rstItem", v.Local.sSqlItem)
+	F.Intrinsic.Control.If(v.ODBC.conP!rstItem.EOF, =, False)
+		v.Local.sLot.Set(v.ODBC.conP!rstItem.FieldValTrim!Lot)
+		v.Local.sBin.Set(v.ODBC.conP!rstItem.FieldValTrim!Bin)
+		V.Local.sSerial.Set(v.ODBC.conP!rstItem.FieldValTrim!serial_number)
+		v.Local.sHeat.Set(v.ODBC.conP!rstItem.FieldValTrim!Heat)
+	F.Intrinsic.Control.Else
+		v.Local.sLot.Set(v.ODBC.conx!rst.FieldValTrim!iField1)
+		v.Local.sHeat.Set(v.ODBC.conx!rst.FieldValTrim!iField2)
+		v.Local.sBin.Set("")
+		v.Local.sSerial.Set("")
+	F.Intrinsic.Control.EndIf 
+	F.ODBC.conP!rstItem.Close
+	'Lot,bin
+	F.Intrinsic.String.Build("{0}{1}", v.Local.sPart, v.Local.sLot, v.Local.sPart)
+	F.Intrinsic.String.RPad(v.Local.sPart, " ", 37, v.Local.sPart)
+	F.Intrinsic.String.Build("{0}{1}", v.Local.sPart, v.Local.sBin, v.Local.sPart)
+	F.Intrinsic.String.RPad(v.Local.sPart, " ", 43, v.Local.sPart)
+	'Heat
+	F.Intrinsic.String.Build("{0}{1}", v.Local.sPart, v.Local.sHeat, v.Local.sPart)
+	F.Intrinsic.String.RPad(v.Local.sPart, " ", 58, v.Local.sPart)
+
+	F.Intrinsic.String.Build("{0}{1}", v.Local.sPart, v.Local.sSerial,v.Local.sPart)
+	F.Intrinsic.String.RPad(v.Local.sPart, " ", 88, v.Local.sPart)
+
+	F.Global.DocumentControl.CreateReference(v.Local.sPart, "00031", v.Local.iLink)
+
+	F.Intrinsic.Control.For(v.Local.iCount, 0, v.Local.sImages.UBound, 1)
+	'If there is a 0 in iField2 then the link will need to be applied to all Parts with the Lot number in iField1
+	'Add all docs to parts with matching lot number
+		'J:\Images\00010033\DATAGRP\00010033\IMG1
+		F.Intrinsic.String.Left(v.Local.sImages(v.Local.iCount).Trim, 5, v.Local.sCase)
+		F.Intrinsic.Control.SelectCase(v.Local.sCase)
+
+			F.Intrinsic.Control.Case("00000")
+				v.Local.sFile.Set("J:\Images\00010033\DATAGRP\00010033\IMG1\00000\")
+			F.Intrinsic.Control.Case("00001")
+				v.Local.sFile.Set("J:\Images\00010033\DATAGRP\00010033\IMG1\00001\")
+			F.Intrinsic.Control.Case("00002")
+				v.Local.sFile.Set("J:\Images\00010033\DATAGRP\00010033\IMG1\00002\")
+			F.Intrinsic.Control.Case("00003")
+				v.Local.sFile.Set("J:\Images\00010033\DATAGRP\00010033\IMG1\00003\")
+			F.Intrinsic.Control.Case("00004")
+				v.Local.sFile.Set("J:\Images\00010033\DATAGRP\00010033\IMG1\00004\")
+			F.Intrinsic.Control.Case("00005")
+				v.Local.sFile.Set("J:\Images\00010033\DATAGRP\00010033\IMG1\00005\")
+			F.Intrinsic.Control.Case("00006")
+				v.Local.sFile.Set("J:\Images\00010033\DATAGRP\00010033\IMG1\00006\")
+			F.Intrinsic.Control.Case("00007")
+				v.Local.sFile.Set("J:\Images\00010033\DATAGRP\00010033\IMG1\00007\")
+			F.Intrinsic.Control.Case("00008")
+				v.Local.sFile.Set("J:\Images\00010033\DATAGRP\00010033\IMG1\00008\")
+			F.Intrinsic.Control.Case("00009")
+				v.Local.sFile.Set("J:\Images\00010033\DATAGRP\00010033\IMG1\00009\")
+		F.Intrinsic.Control.EndSelect
+
+		F.Intrinsic.String.Build("{0}{1}.TIF", v.Local.sFile.Trim, v.Local.sImages(v.Local.iCount).Trim, v.Local.sFile)	
+		F.Global.DocumentControl.AddDocument(v.Local.iLink, v.Local.sFile, "From PaperVision", "30", "TIF") 
+
+		F.Intrinsic.Control.If(v.ODBC.conx!rst.FieldValTrim!iField2, =, "0")
+			F.Intrinsic.String.Build("Select Part, Lot, heat, Serial_Number, Bin from Item_Master where Lot Like '%{0}%'", v.Local.sLot, v.Local.sSqlParts)
+			F.ODBC.Connection!conP.OpenLocalRecordsetRO("rstItem", v.Local.sSqlParts)
+			F.Intrinsic.Control.DoUntil(v.ODBC.conP!rstItem.EOF, =, True)
+				'Build Part key
+				F.Intrinsic.String.RPad(v.ODBC.conP!rstItem.FieldVal!Part, " ", 22, v.Local.sPart)
+				'Lot,bin
+				F.Intrinsic.String.Build("{0}{1}", v.Local.sPart,v.ODBC.conP!rstItem.FieldVal!Lot, v.Local.sPart)
+				F.Intrinsic.String.RPad(v.Local.sPart, " ", 37, v.Local.sPart)
+				F.Intrinsic.String.Build("{0}{1}", v.Local.sPart, v.ODBC.conP!rstItem.FieldVal!Bin, v.Local.sPart)
+				F.Intrinsic.String.RPad(v.Local.sPart, " ", 43, v.Local.sPart)
+				'Heat
+				F.Intrinsic.String.Build("{0}{1}", v.Local.sPart, v.ODBC.conP!rstItem.FieldVal!Heat, v.Local.sPart)
+				F.Intrinsic.String.RPad(v.Local.sPart, " ", 58, v.Local.sPart)
+				F.Intrinsic.String.Build("{0}{1}", v.Local.sPart, v.ODBC.conP!rstItem.FieldVal!Serial_Number, v.Local.sPart)
+				F.Intrinsic.String.RPad(v.Local.sPart, " ", 88, v.Local.sPart)
+
+				'add reference
+				F.Global.DocumentControl.CreateReference(v.Local.sPart, "00031", v.Local.iLink)
+				'Add doc
+				F.Global.DocumentControl.AddDocument(v.Local.iLink, v.Local.sFile, "From PaperVision", "30", "TIF")
+				F.ODBC.conP!rstItem.MoveNext
+			F.Intrinsic.Control.Loop
+			F.ODBC.conP!rstItem.Close
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Next(v.Local.iCount)
+
+	F.ODBC.conx!rst.MoveNext
+	v.Local.ilencount.Set(0)
+	v.Local.sLength.Set("")
+F.Intrinsic.Control.Loop
+F.ODBC.conx!rst.Close
+
+F.ODBC.Connection!conx.Close
+
+
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_3527_PaperVisionConversion.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Main.End
+
+Program.Sub.Comments.Start
+${$0$}$GCG_3527_PaperVisionConversion$}$SKT$}$10/27/2015 3:52:07 PM$}$False
+${$3$}$0$}$$}$0$}$-1$}$$}$12:00:00 AM$}$Created as a sample conversion from Papervision to Document Control
+This was created for Brookfield
+Program.Sub.Comments.End
